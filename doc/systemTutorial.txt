@@ -1,0 +1,221 @@
+Author: Jesse Berlin Watts-Russell and Patrick Lu
+Date: April 10, 2014
+Distributed Systems, Homework 5
+
+Yo. So wassup. We gonna go through this likeaboss. (Again!)
+
+Basically, I HIGHLY RECOMMEND YOU START EACH NODE INDIVIDUALLY IN ITS OWN SHELL
+WINDOW NOT OVER SSH, BECAUSE IT IS MUCH MUCH MUCH EASIER TO SEE WHAT IS GOING
+ON AT EACH NODE WITH ITS OWN INDIVIDUAL SHELL.
+
+So first, extract to a directory you wanna work from and you should get a
+folder key_value. cd into that directory and we can work from there.
+
+
+Note: run make.
+
+Note: use the shell scripts for key_value_node and controller. We use ETS 
+      tables and there is a limit to 1400 for one node, unless you specify
+      otherwise using -env ERL_MAX_ETS_TABLES. The shell script does this for
+      you.
+
+###############################################################################
+#                             Using Key-Value Node                            #
+###############################################################################
+
+So, let's look at working with key_value_node. Like the assignment specifies,
+running this creates a Node in the distributed Key-Value-Node storage. If run
+without a "node to connect to" argument, it starts up its new distributed 
+system, but if one is provided it connects to that group of nodes, chooses a
+node number, and takes processes and backup processes it is in charge of.
+
+But... I've created a nice shell script for this! Instead of going into ebin
+(after making) and running
+	
+	% erl -noshell -run key_value_node main <M> <NodeName> <OPTIONAL:NodeToConnectTo>
+
+	(If you are using a large M, specifically above 9 then you need to specify
+	the number of ETS tables)
+
+	% erl -env ERL_MAX_ETS_TABLES Blah -run key_value_node ...
+
+	Generally, you want Blah = 2^(M+1) + 100. M + 1 is because there are
+	double the number of ETS tables for backups, and 100 is just to give it
+	a bit of leeway.
+
+
+!!!! THE BETTER WAY !!!!
+You can just stay in the root directory of the project and run
+	(you MIGHT have to run chmod 755 key_value_node)
+
+	% ./key_value_node <M> <NodeName> <OPTIONAL:NodeToConnectTo>
+
+	Like so...
+	% ./key_value_node 3 node0
+	2014-04-10 16:48:50.822818: Initializing The Node node0@amazonia.
+	2014-04-10 16:48:50.842975 [NODE 0]: I'm the first node in this system, so I've made my node number 0.
+	2014-04-10 16:48:50.847584 [NODE 0]: Starting My Storage Processes (processes 0 to 7).
+	2014-04-10 16:48:50.856835 [NODE 0]: Starting My Backup Storage Processes (processes 0 to 7).
+	2014-04-10 16:48:50.859773 [NODE 0]: Done initiating Storage Processes and Backup Storage Processes!
+
+And you can connect additional nodes to it...
+
+	% ./key_value_node 3 node1 node0@amazonia
+	2014-04-10 16:53:09.870652: Initializing The Node node1@ash.
+	2014-04-10 16:53:10.139035 [NODE 2]: I've chosen my node number to be 2; the node ahead of me is 0; the node behind me is 0.
+	2014-04-10 16:53:10.152237 [NODE 2]: Starting My Storage Processes (processes 2 to 7).
+	2014-04-10 16:53:10.164108 [NODE 2]: Starting My Backup Storage Processes (processes 0 to 1).
+	2014-04-10 16:53:10.167025 [NODE 2]: Done initiating Storage Processes and Backup Storage Processes!
+
+Of course, if you try to add more than 2^M nodes in the system it wont work
+because there are no more processes left for it. JUST DONT DO IT.
+
+
+YEa. so just spawn these up as necessary and then you can test stuff.
+
+
+
+
+###############################################################################
+#                             Querying The Server                             #
+###############################################################################
+
+Now, this is just for testing the assignment and I'm sure you grutors are
+required to do this, but seriously. JUST USE THE CONTROLLER. I made it for a
+reason... to make it easier to test! So use it (read readmeController.txt)
+
+And now after that shpeal I'm going to show you how to not use it anyways...
+
+	Key Point of the system:
+		1. Nodes are registered globally as {node, NodeNum}
+			* Note that the name of a node (i.e. node0@ash) does NOT mean that
+			  the node number is, in this example, 0.
+
+		2. Storage Processes are registered globally as storageProcessX, 
+		   where X is a number 0 <= X <= 2^M.
+
+		3. Backup Storage Processes are registered locally on the node right
+		   after the assigned node for a process as bstorageProcessX, where
+		   X has the same restrictions.
+
+You can now open up an erlang shell in distributed mode and query the
+server using simple global:send(), and then using flush() to see the response.
+Of course, use the specified message in the homework. 
+
+You need to actually connect to one of the nodes in the system first (in order
+to get the global registry). So use net_adm:ping(ANodeInTheSystem).
+
+	% erl -sname moo
+	Eshell V5.10.4  (abort with ^G)
+	(moo@elm)1> net_adm:ping(node0@amazonia).
+	pong
+	(moo@elm)2> Ref = make_ref().
+	#Ref<0.0.0.42>
+	(moo@elm)3> global:send(storageProcess2, {self(), Ref, store, "moo", derp}).
+	<7099.47.0>
+	(moo@elm)4> flush().
+	Shell got {#Ref<0.0.0.42>,stored,no_value}
+	ok
+
+	(moo@elm)5> global:send(storageProcess2, {self(), Ref, retrieve, "moo"}).
+	<7081.47.0>
+	(moo@elm)6> flush().
+	Shell got {#Ref<0.0.0.42>,retrieved,derp}
+	ok
+
+	(moo@elm)7> global:send(storageProcess5, {self(), Ref, num_keys}).
+	<7085.47.0>
+	(moo@elm)8> flush().
+	Shell got {#Ref<0.0.0.42>,result,1}
+	ok
+
+	(moo@elm)7> global:send(storageProcess5, {self(), Ref, first_key}).
+	<7088.47.0>
+	(moo@elm)8> flush().
+	Shell got {#Ref<0.0.0.42>,result,"moo"}
+	ok
+
+	(moo@elm)9> global:send(storageProcess5, {self(), Ref, last_key}).
+	<7092.47.0>
+	(moo@elm)10> flush().
+	Shell got {#Ref<0.0.0.42>,result,"moo"}
+	ok
+
+	(moo@elm)11> global:send(storageProcess5, {self(), Ref, node_list}).
+	<7095.47.0>
+	(moo@elm)12> flush().
+	Shell got {#Ref<0.0.0.42>,result,[0,3,6]}
+	ok
+
+And you should get similar things for other messages.
+
+
+###############################################################################
+#                          A Node Dying (or Leaving)                          #
+###############################################################################
+
+When a node dies, other nodes around it pick up for it. There really isn't that
+much else to say here.
+
+The node that was previously ahead of it changes its registered number to that
+of the node that died.
+
+	So lets say in a system with M = 3, and 3 nodes [0, 3, 6]...
+
+	If 6 died, {node, 0} would be re-registered as {node, 6}.
+
+	Since it was backup-ing node 6's storage processes, it would turn all those
+	backups into real storage processes and then appropriately get new backups
+	and tell its new neighbors (the one behind it and the one in front of it)
+	to update appropriately as well.
+
+For example...
+	
+	On Node 6...
+		2014-04-10 17:07:27.682565 [NODE 6]: Done initiating Storage Processes and Backup Storage Processes!
+		^C
+
+	On Node 0...
+		2014-04-10 17:21:29.518879 [NODE 0]: Node 6 behind me just left (either fasionably or unfasionably) so I'm changing my Node to 6 and updating my processes, the processes of the node ahead of me, and the processes of the node behind me accordingly.
+
+
+###############################################################################
+#                 Running Philosophers All From the Same Shell                #
+###############################################################################
+
+    Don't do this! Well, I guess since you are reading this you are probably
+    going to do it anyways...
+
+    Anyways, in order to make sure your process doesn't get suspended here
+    is a way to run a key_value_node over ssh from another computer (and by
+    extension, you can start all your key_value_nodes from just this one
+    computer).
+
+
+    tail -f /dev/null | ssh <Node> "cd <KEY_VALUE DIRECTORY>; make; nohup erl
+  	-pa ebin -run key_value_node main <M> <NodeName> <OPTIONAL:NodeToConnectTo>" & 
+
+    All the output that would have popped up on that remote shell will pop
+    up on your current shell. WHICH IS HORRIBLE if you start many many nodes
+    from that one computer (hard to read and stuff).
+
+    Also note that if you kill this ssh process, the key_value_node is still
+    running on that remote computer.
+
+    OPEN MULTIPLE SHELLS.
+
+
+###############################################################################
+
+That's all for this folks. Now take a look at controllerTutorial.txt to see 
+more examples and to learn how to use the controller for easier testing! 
+
+Also Take a look at the miniexample.png file to see an example of using the 
+controller and how the nodes react to different commands.
+
+Sincerely,
+	Jesse and Patrick
+
+P.S. Moo.
+
+

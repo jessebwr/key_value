@@ -1,0 +1,219 @@
+Author: Jesse Berlin Watts-Russell and Patrick Lu
+Date: April 10, 2014
+Distributed Systems, Homework 5
+
+Note: read systemTutorial.txt first!!
+
+Note: run make.
+
+
+So. You are here. You are the smart individual that has chosen to use our
+graciously given controller to make testing (and just having fun) much much
+easier! And so here's how to use it:
+
+                              oooo############oooo
+                          oo########################o
+                       oo##############################o         o#   ## o#
+       o # oo        o####################################o       ## ## ##o#
+    oo # # "#      o#########    #############    #########o       ###o##o#
+    "######o#     o#########      ###########      ##########o    ########
+      #######    ###########      ###########      #######################
+      #######################    #############    ##############  """###
+       "###""""#################################################     "###
+        ###   o####################### ##########################     "###o
+       o##"   #######################   #########################       ###o
+       ###    ######################     ##################" "######ooooo####o
+      o###oooo#####  #####################################   o#################
+      ########"####   ##################################     ####""""""""
+     """"       ####    "############################"      o###
+                "###o     """##################"##"         ###
+                  ###o          "##""######""""           o###
+                   ####o                                o###"
+                    "####o      o######o"####o        o####
+                      "#####oo     ""####o#####o   o####""
+                         ""#####oooo  "###o#########"""
+                            ""#######oo ##########
+                                    """"###########
+                                        ############
+                                         ##########"
+                                          "###""
+
+Just kidding. Here we go.
+
+
+###############################################################################
+#                                 The Basics                                  #
+###############################################################################
+
+So the controller provides several key abstractions and just makes it easier
+to test. Here are the provided functionalities of the controller.
+
+	store(Key, Value, StorageProcessNumber)
+
+	retrieve(Key, StorageProcessNumber)
+
+	first_key(StorageProcessNumber)
+
+	last_key(StorageProcessNumber)
+
+	num_keys(StorageProcessNumber)
+
+	node_list(StorageProcessNumber)
+
+	leave(StorageProcessNumber)
+
+	getSPstate(StorageProcessNumber)     Get Storage Process State
+
+	getNodestate(NodeNumber)             Get Node State
+
+
+To run the controller... cd into the key_value directory where you extracted
+the .zip file. Then run make. Then you can run
+
+	% ./controller <NodeToConnectTo>
+
+	Eshell V5.10.4  (abort with ^G)
+	(IVw5VVnNMF@lothlorien)1> controller:store("moo", moovalue, 4)
+
+And it will start up an erlang shell connected to that node (with a randomly 
+generated name) and you can start making some queries. In the case where you 
+don't give an actual node you should receive something that looks like:
+
+	% ./controller derp
+	Eshell V5.10.4  (abort with ^G)
+	1> Give me a valid node to connect to...
+	(it exits)
+
+
+It makes it pretty nice because now you dont actually have to know that we
+registered our storage processes as storageProcessX, or our nodes as {node, X}.
+The controller just abstracts that out.
+
+###############################################################################
+#                               Trying it Out                                 #
+###############################################################################
+
+Let's just start up a small system with 16 processes (0-15) and 5 nodes:
+
+	[jwattsrussel@verbena:~/courses/cs182E/key_value]
+	% ./key_value_node 4 node0
+	2014-04-10 19:38:02.262883: Initializing The Node node0@verbena.
+	2014-04-10 19:38:02.288444 [NODE 0]: I'm the first node in this system, so I've made my node number 0.
+
+	[jwattsrussel@lothlorien:~/courses/cs182E/key_value]
+	% ./key_value_node 4 node1 node0@verbena
+	2014-04-10 19:38:25.286822: Initializing The Node node1@lothlorien.
+	2014-04-10 20:07:14.863079 [NODE 2]: I've chosen my node number to be 2; the node ahead of me is 0; the node behind me is 0.
+
+	[jwattsrussel@amazonia:~/courses/cs182E/key_value]
+	% ./key_value_node 4 node2 node0@verbena
+	2014-04-10 19:39:15.518015: Initializing The Node node2@amazonia.
+	2014-04-10 20:07:17.174716 [NODE 10]: I've chosen my node number to be 10; the node ahead of me is 0; the node behind me is 2.
+
+	[jwattsrussel@arden:~/courses/cs182E/key_value]
+	% ./key_value_node 4 node3 node0@verbena
+	2014-04-10 19:39:31.857582: Initializing The Node node3@arden.
+	2014-04-10 20:07:23.422521 [NODE 8]: I've chosen my node number to be 8; the node ahead of me is 10; the node behind me is 2.
+
+	[jwattsrussel@ash:~/courses/cs182E/key_value]
+	% ./key_value_node 4 node4 node0@verbena
+	2014-04-10 19:39:47.687122: Initializing The Node node4@ash.
+	2014-04-10 20:07:26.674855 [NODE 4]: I've chosen my node number to be 4; the node ahead of me is 8; the node behind me is 2.
+
+
+Now, starting up the controller...
+
+	% ./controller node4@ash
+
+	Eshell V5.10.4  (abort with ^G)
+	(SJw6Bagpmt@birnam)1> 
+
+
+1. Storing
+
+	(SJw6Bagpmt@birnam)1> controller:store("moo", moovalue, 1).
+	ok
+	2014-04-10 20:09:06.882696: [Store Query to Storage Process 1] Sucessfully stored value (moovalue) at key "moo" and there was no previously stored value there. 
+
+	(SJw6Bagpmt@birnam)2> controller:store("moo", moovalue, 4).
+	ok
+	2014-04-10 20:10:23.45388: [Store Query to Storage Process 1] Sucessfully stored value (moovalue) at key "moo" and the previously stored value at that key was moovalue.
+
+
+
+	Now... say we stored "moo1" through "moo6" as well (i just didnt want to write them out)
+
+
+2. Retrieving
+
+	(SJw6Bagpmt@birnam)3> controller:retrieve("moo4", 15).
+	ok
+	2014-04-10 20:12:31.309309: [Retrieve Query to Storage Process 15] The value (moovalue) was stored at key "moo4".
+
+
+3. First Key
+
+	(SJw6Bagpmt@birnam)10> controller:first_key(3).
+	ok
+	2014-04-10 20:14:23.744827: [First_Key Query to Storage Process 3] The first key (lecicographically) in the system is "moo"
+
+
+4. Last Key
+
+	(SJw6Bagpmt@birnam)11> controller:last_key(7).
+	ok
+	2014-04-10 20:18:14.858793: [Last_Key Query to Storage Process 7] The last key (lecicographically) in the system is "moo6".
+
+
+5. Number of Keys
+
+	(SJw6Bagpmt@birnam)13> controller:num_keys(14).
+	ok
+	2014-04-10 20:19:20.575058: [Num_Keys Query to Storage Process 14] There are 7 keys for which values are stored in the system.
+
+6. Node List
+
+	(SJw6Bagpmt@birnam)14> controller:node_list(12).
+	ok
+	2014-04-10 20:20:48.423953: [Node_List Query to Storage Process 12] Nodes [0,2,4,8,10] are in the system.
+
+
+7. Get Storage Process State
+
+	(SJw6Bagpmt@birnam)16> controller:getSPstate(7).
+	The State of Storage Process 7 is...
+	M: 4
+	I: 7
+	ETS Table Id: 32790
+	Node Number: 4
+	ok
+
+8. Get Node State
+
+	(SJw6Bagpmt@birnam)19> controller:getNodestate(0).
+	The State of Node 0 is...
+	M: 4
+	Storage Processes: [0,1]
+	Backup Storage Processes: [10,11,12,13,14,15]
+	Ahead Node Number: 2
+	Behind Node Name: node2@amazonia
+	Behind Node Number: 10
+
+9. Leave
+
+	(SJw6Bagpmt@birnam)20> controller:leave(11).
+	<5981.68.0>
+
+	NO RESPONSE!!
+
+
+
+
+
+And that's the basic ideas of the controller!!
+
+Sincerely,
+	Jesse and Patrick
+
+P.S. Foo
+

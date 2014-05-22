@@ -1,0 +1,136 @@
+Author: Jesse Berlin Watts-Russell and Patrick Lu
+Date: April 10, 2014
+Distributed Systems, Homework 5
+
+Derp. Read systemTutorial.txt and controllerTutorial.txt first (Please)!
+
+
+###############################################################################
+#                 Pretty Pretty Shiny Shiny (Simple) Example                  #
+###############################################################################
+
+Basically, we're going to go through an example! There'll be 3 nodes, which
+we will start using our shell script, and our controller that will be querying
+the storage processes on those nodes. We will also show what happens when nodes
+leave.
+
+Let's do something a bit more exciting... lets let M = 10. This for one thing,
+means that there will be 2^11 ETS tables in our system initially on one node
+(since there are 2^10 Storage Processes and 2^10 Backup Storage Processes).
+Which means that we're going over the 1400 max ETS count. But luckily our
+shell script accounts for that so you don't need too!
+
+	node0@verbena:
+		% ./key_value_node 10 node0
+		2014-04-10 20:37:29.946336: Initializing The Node node0@verbena.
+		2014-04-10 20:37:29.973133 [NODE 0]: I'm the first node in this system, so I've made my node number 0.
+		2014-04-10 20:37:29.977391 [NODE 0]: Starting My Storage Processes (processes 0 to 1023).
+		2014-04-10 20:37:30.90526 [NODE 0]: Starting My Backup Storage Processes (processes 0 to 1023).
+		2014-04-10 20:37:30.147752 [NODE 0]: Done initiating Storage Processes and Backup Storage Processes!
+
+
+	node1@lothlorien:
+		./key_value_node 10 node1 node0@verbena
+		2014-04-10 22:17:17.693826: Initializing The Node node1@lothlorien.
+		2014-04-10 22:17:17.964852 [NODE 389]: I've chosen my node number to be 389; the node ahead of me is 0; the node behind me is 0.
+		2014-04-10 22:17:18.12621 [NODE 389]: Starting My Storage Processes (processes 389 to 1023).
+		2014-04-10 22:17:18.808877 [NODE 389]: Starting My Backup Storage Processes (processes 0 to 388).
+		2014-04-10 22:17:18.826738 [NODE 389]: Done initiating Storage Processes and Backup Storage Processes!
+
+
+
+		and while this is happening, node0@verbena says:
+
+		2014-04-10 22:17:17.981351 [NODE 0]: Node 389 has joined the system and I'm the node directly behind him, so I'm removing storage processes (389 to 1023).
+		2014-04-10 22:17:18.14696 [NODE 0]: Node 389 has joined the system and I'm the node directly ahead of him, so I'm removing backup processes (0 to 388).
+
+		Note that Node 0 IS both the node ahead and behind of node 388
+
+
+	node2@amazonia:
+		./key_value_node 10 node2 node0@verbena
+		2014-04-10 22:17:20.57401: Initializing The Node node2@amazonia.
+		2014-04-10 22:17:20.329114 [NODE 706]: I've chosen my node number to be 706; the node ahead of me is 0; the node behind me is 389.
+		2014-04-10 22:17:20.352023 [NODE 706]: Starting My Storage Processes (processes 706 to 1023).
+		2014-04-10 22:17:20.758346 [NODE 706]: Starting My Backup Storage Processes (processes 389 to 705).
+		2014-04-10 22:17:20.771223 [NODE 706]: Done initiating Storage Processes and Backup Storage Processes!
+
+
+		While node0@verbena is saying...
+		2014-04-10 22:17:20.354224 [NODE 0]: Node 706 has joined the system and I'm the node directly ahead of him, so I'm removing backup processes (389 to 705).
+
+		While node1@lothlorien:
+		2014-04-10 22:17:20.342495 [NODE 389]: Node 706 has joined the system and I'm the node directly behind him, so I'm removing storage processes (706 to 1023).
+
+
+Now, working with the controller:
+
+	% ./controller node0@verbena
+
+
+	Eshell V5.10.4  (abort with ^G)
+	
+	## First storing a key
+	(bAzsK0wciD@birnam)1> controller:store("TestingKeyYeah", testingValueYeah, 5).
+
+		node0@verbena initially gets the store request:
+			2014-04-10 22:21:37.369308 [NODE 0, StorageProcess 5]: Got a storage request with hash key 398, so handing it over.
+			2014-04-10 22:21:37.369583 [NODE 0, StorageProcess 261]: Got a storage request with hash key 398, so handing it over.
+
+
+		Then, it gets passed onto node1@lothlorien:
+			2014-04-10 22:21:37.370218 [NODE 389, StorageProcess 389]: Got a storage request with hash key 398, so handing it over.
+			2014-04-10 22:21:37.370387 [NODE 389, StorageProcess 397]: Got a storage request with hash key 398, so handing it over.
+			2014-04-10 22:21:37.370482 [NODE 389, StorageProcess 398]: Got a storage request with hash key 398, so inserting ("TestingKeyYeah",testingValueYeah) into our table.
+
+		Finally, it reaches node2@amazonia:
+			2014-04-10 22:21:37.370139 [BackupStorageProcess 398]: Backup Storing ("TestingKeyYeah", testingValueYeah) in our table. #### AT THIS POINT WE MESSAGE BACK TO CONTROLLER
+
+	2014-04-10 22:21:37.371689: [Store Query to Storage Process 5] Sucessfully stored value (testingValueYeah) at key "TestingKeyYeah" and there was no previously stored value there.
+
+
+	## Now trying to retrieve that.
+	(bAzsK0wciD@birnam)2> controller:retrieve("TestingKeyYeah", 5).
+
+		node0@verbena initially gets the store request:
+			2014-04-10 22:27:16.960811 [NODE 0, StorageProcess 5]: Got a retrieve request with hash key 398, so handing it over.
+			2014-04-10 22:27:16.961160 [NODE 0, StorageProcess 261]: Got a retrieve request with hash key 398, so handing it over.
+
+		Then, it gets passed onto node1@lothlorien:
+			2014-04-10 22:27:16.961668 [NODE 389, StorageProcess 389]: Got a retrieve request with hash key 398, so handing it over.
+			2014-04-10 22:27:16.961808 [NODE 389, StorageProcess 397]: Got a retrieve request with hash key 398, so handing it over.
+			2014-04-10 22:27:16.961893 [NODE 389, StorageProcess 398]: Got a retrieve request with hash key 398, and I found its value was testingValueYeah.
+
+	2014-04-10 22:27:16.961894: [Retrieve Query to Storage Process 5] The value (testingValueYeah) was stored at key "TestingKeyYeah".
+
+
+We can also kill nodes and things will re-organize. Let's kill node1@lothlorien.
+
+	node2@amazonia says:
+		2014-04-10 22:31:24.425275 [NODE 706]: Node 389 behind me just left (either fasionably or unfasionably) so I'm changing my Node to 389 and updating my processes, the processes of the node ahead of me, and the processes of the node behind me accordingly.
+
+
+		# Both the behind and in front nodes of him are Node 0!!
+
+	node0@verbena says:
+
+		2014-04-10 22:31:24.840451 [NODE 0]: Retrieve backups after a node leaving.
+		2014-04-10 22:31:24.849295 [NODE 0]: Adding backups after a node leaving.
+
+And everything gets reorganized and things are good.
+
+We can call retrieve again, and nothing will have gone missing.
+
+
+
+###############################################################################
+
+I literally could go through everything, but I think after these 3 tutorials
+you might have enough info to test!
+
+Sincerely,
+	Jesse and Patrick
+
+
+
+

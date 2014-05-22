@@ -1,0 +1,3 @@
+#/usr/bin/zsh
+((T = 2**($1 + 1) + 100 ))
+erl -env ERL_MAX_ETS_TABLES $T -pa ebin -noshell -run key_value_node main $1 $2 $3
