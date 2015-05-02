@@ -22,21 +22,34 @@ Once you have several nodes set up you can use our nice controller to make queri
 Then there are several queries you can make:
 
 ```erlang
+  % Store a key (string) and its value. The storage number doesn't matter
+  % as long as it is under 2^m, the system will figure out which storage
+  % process it is stupposed to be on (given our internal hash function).
   controller:store(Key, Value, StorageProcessNumber)
 
+  % Retrieve a key's value from the cluster
   controller:retrieve(Key, StorageProcessNumber)
 
+  % Get the lexicographical first key in the cluster
   controller:first_key(StorageProcessNumber)
 
+  % Get the lexicographical last key in the cluster
   controller:last_key(StorageProcessNumber)
 
+  % Get the total number of keys in the cluster
   controller:num_keys(StorageProcessNumber)
 
+  % Get our node list
   controller:node_list(StorageProcessNumber)
 
-  controller:leave(StorageProcessNumber)
+  % Kill the node that holds this storage
+  controller:leave(StorageProcessNumber)                  
 
-  controller:getSPstate(StorageProcessNumber)     Get Storage Process State
+  % Get Storage Process State
+  controller:getSPstate(StorageProcessNumber)             
 
-  controller:getNodestate(NodeNumber)             %Get Node State
+  % Get Node State
+  controller:getNodestate(NodeNumber)                     
 ```
+
+Try it out?
