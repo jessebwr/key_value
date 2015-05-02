@@ -4,10 +4,7 @@
 %%% @copyright ChickenFartStory Inc. 2015, All rights reserved
 %%%
 %%% @doc A Generic Server implementation of a controller that talks to 
-%%%		 philosophers, telling them to become hungry, stop eating and
-%%%      leave with nice commands (and receive their output and
-%%%		 formatting that response nicely). It also supplies some extr
-%%%		 info commands such as get_state, get_neighbors, and list_forks
+%%%		   our cluster of nodes in our distributed key-value ring.
 %%% @end
 %%%--------------------------------------------------------------------
 
@@ -74,9 +71,10 @@ start([Node]) when is_list(Node) ->
 			io:format("Give me a valid node to connect to...~n"),
 			erlang:halt()
 	end.
-%% @spec become_hungry(Node) -> ok.
-%% @doc Casts our server to tell the philosopher to become hungry (and 
-%%		store the hungry reference).
+%% @spec store(Node) -> ok.
+%% @doc Casts to ANY storage process to store a key value pair. If the storage
+%%      process happens not to be the right one (given our internal hashing
+%%      function), then we'll just hand it off to the right storage process
 store(Key, Value, StorageProcessNumber) ->
 	gen_server:cast(controller, {store, Key, Value, StorageProcessNumber}).
 
